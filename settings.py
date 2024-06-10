@@ -14,3 +14,18 @@ TELEGRAM_TOKEN = os.getenv(
     'TG_TOKEN', '123456789:AABBCCDDEEFFaabbccddeeff-1234567890'
 )
 TELEGRAM_CHAT_ID = int(os.getenv('TG_CHAT_ID', '000'))
+
+DB_UPDATE_TIMEOUT_HOURS = 24
+
+FUTURES_KEEP_COLUMNS = [
+    'ticker',
+    'basic_asset',
+    'basic_asset_size',
+    'expiration_date',
+    'uid',
+]
+STOCKS_KEEP_COLUMNS = [
+    'ticker',
+    'name',
+    'uid',
+]
