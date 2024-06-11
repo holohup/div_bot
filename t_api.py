@@ -1,4 +1,3 @@
-import asyncio
 from decimal import Decimal
 from settings import TCS_RO_TOKEN, RETRY_SETTINGS, ORDERBOOK_DEPTH
 import pandas as pd
@@ -59,10 +58,3 @@ async def get_orderbook_price(uid: str, sell: bool) -> Decimal:
         )
     result = ob.bids[0] if sell else ob.asks[0]
     return quotation_to_decimal(result.price)
-
-
-async def main():
-    print(await check_futures_trading({'uid': '1fa1abf1-5ec4-4652-af20-3779b3cc60ee'}))
-
-if __name__ == '__main__':
-    asyncio.run(main())

@@ -8,9 +8,11 @@ import asyncio
 from storage import Storage, FileStorage
 import pandas as pd
 from tinkoff.invest.schemas import RealExchange
-from settings import FUTURES_KEEP_COLUMNS, STOCKS_KEEP_COLUMNS
+from settings import (FUTURES_KEEP_COLUMNS,
+                      STOCKS_KEEP_COLUMNS, DEFAULT_DISCOUNT_RATE)
 
 FORCE_LAST_PRICE = False
+DISCOUNT_RATE = DEFAULT_DISCOUNT_RATE
 
 DATA_FETCHERS = {
     'futures': fetch_futures,
@@ -57,7 +59,26 @@ class DividendCounter:
     async def count(self):
         await self._load_data()
         await self._fill_missing_numbers()
+        self._count_dividends()
         return self._futures, self._stock
+
+    def _count_dividends(self):
+        stock_price: Decimal = self._stock.iloc[0]['price']
+        self._futures['dividend'] = self._futures.apply(
+            self.count_dividend, axis=1, args=(stock_price,)
+        )
+        self._futures[
+            'div_percent'
+        ] = 100 * self._futures['dividend'] / float(stock_price)
+
+    @staticmethod
+    def count_dividend(row: pd.Series, stock_price: Decimal) -> float:
+        daily_discount_rate = (
+            Decimal('1') + (Decimal(DISCOUNT_RATE) / 100)
+        ) ** (Decimal('1') / Decimal('365')) - 1
+        present_value = row['price'] / (1 + daily_discount_rate) ** row['days']
+        dividend = stock_price - (present_value / row['basic_asset_size'])
+        return float(dividend)
 
     async def _fill_missing_numbers(self) -> None:
         self._futures['days'] = (pd.to_datetime(self._futures[
@@ -83,29 +104,34 @@ class DividendCounter:
         )
 
     async def _load_data(self) -> None:
-        self._stocks_db = await self._handler.get_data('stocks')
-        self._futures_db = await self._handler.get_data('futures')
+        await self._update_from_db()
         self._stock = self._stocks_db.loc[self._stocks_db[
             'ticker'
-        ] == self._ticker]
+        ] == self._ticker].copy()
         if self._stock.empty:
             raise ValidationError(f'Тикер {self._ticker} не найден в базе')
         self._futures = self._futures_db[self._futures_db[
             'basic_asset'
-        ] == self._ticker].sort_values(by='expiration_date', ascending=True)
+        ] == self._ticker].sort_values(
+            by='expiration_date', ascending=True
+        ).copy()
         if self._futures is None or self._futures.empty:
             raise ValidationError(f'Для тикера {self._ticker} нет фьючерсов')
 
-    def list_available_tickers(self):
+    async def _update_from_db(self):
+        self._stocks_db = await self._handler.get_data('stocks')
+        self._futures_db = await self._handler.get_data('futures')
+
+    async def list_available_tickers(self):
+        await self._update_from_db()
         f_tickers = set(self._futures_db['basic_asset'])
         res = sorted([t for t in self._stocks_db['ticker'] if t in f_tickers])
         return ', '.join(res)
 
 
 async def main():
-    c = DividendCounter('gazp')
+    c = DividendCounter('magn')
     print(await c.count())
-    # print(c.list_available_tickers())
 
 
 if __name__ == '__main__':
