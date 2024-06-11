@@ -29,3 +29,4 @@ STOCKS_KEEP_COLUMNS = [
     'name',
     'uid',
 ]
+ORDERBOOK_DEPTH = 1
