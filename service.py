@@ -1,15 +1,17 @@
+import asyncio
 import datetime
 from decimal import Decimal
 from typing import Literal
-from exceptions import ValidationError
-from t_api import (fetch_futures, fetch_stocks,
-                   is_trading_now, get_last_prices, get_orderbook_price)
-import asyncio
-from storage import Storage, FileStorage
+
 import pandas as pd
 from tinkoff.invest.schemas import RealExchange
-from settings import (FUTURES_KEEP_COLUMNS,
-                      STOCKS_KEEP_COLUMNS, DEFAULT_DISCOUNT_RATE)
+
+from exceptions import ValidationError
+from settings import (DEFAULT_DISCOUNT_RATE, FUTURES_KEEP_COLUMNS,
+                      STOCKS_KEEP_COLUMNS)
+from storage import FileStorage, Storage
+from t_api import (fetch_futures, fetch_stocks, get_last_prices,
+                   get_orderbook_price, is_trading_now)
 
 FORCE_LAST_PRICE = False
 DISCOUNT_RATE = DEFAULT_DISCOUNT_RATE

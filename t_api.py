@@ -1,12 +1,12 @@
 from decimal import Decimal
-from settings import TCS_RO_TOKEN, RETRY_SETTINGS, ORDERBOOK_DEPTH
+
 import pandas as pd
 from tinkoff.invest.retrying.aio.client import AsyncRetryingClient
+from tinkoff.invest.schemas import InstrumentIdType as IdType
+from tinkoff.invest.schemas import SecurityTradingStatus as TStatus
 from tinkoff.invest.utils import quotation_to_decimal
-from tinkoff.invest.schemas import (
-    InstrumentIdType as IdType,
-    SecurityTradingStatus as TStatus,
-)
+
+from settings import ORDERBOOK_DEPTH, RETRY_SETTINGS, TCS_RO_TOKEN
 
 
 async def fetch_futures() -> pd.DataFrame:

@@ -1,8 +1,9 @@
 from aiogram import Bot, Dispatcher
 # from aiogram.filters import Command
 from aiogram.types import Message
-from settings import TG_BOT_TOKEN
+
 from service import DividendCounter
+from settings import TG_BOT_TOKEN
 
 bot = Bot(TG_BOT_TOKEN)
 dp = Dispatcher()
