@@ -9,7 +9,7 @@ from tinkoff.invest.schemas import RealExchange
 from exceptions import ValidationError
 from settings import (DEFAULT_DISCOUNT_RATE, FUTURES_KEEP_COLUMNS,
                       STOCKS_KEEP_COLUMNS)
-from storage import FileStorage, Storage
+from settings import STORAGE
 from t_api import (fetch_futures, fetch_stocks, get_last_prices,
                    get_orderbook_price, is_trading_now)
 
@@ -23,13 +23,15 @@ DATA_FETCHERS = {
 
 
 class THandler:
-    def __init__(self, storage: Storage) -> None:
+    def __init__(self, storage) -> None:
         self._storage = storage
 
-    async def get_data(
-        self, dt: Literal['futures', 'stocks']
-    ) -> pd.DataFrame:
-        data = self._storage(dt)
+    async def get_data(self, dt: Literal['futures', 'stocks']) -> pd.DataFrame:
+        data_storage = self._storage(dt)
+        await self.update_data(dt, data_storage)
+        return data_storage.retrieve_df()
+
+    async def update_data(self, dt: Literal['futures', 'stocks'], data):
         if not data.is_updated():
             df = await DATA_FETCHERS[dt]()
             df = df[df['real_exchange'] == RealExchange.REAL_EXCHANGE_MOEX]
@@ -42,7 +44,6 @@ class THandler:
             elif dt == 'stocks':
                 df = df[STOCKS_KEEP_COLUMNS]
             data.store_df(df)
-        return data.retrieve_df()
 
     def _apply_futures_filters(self, df: pd.DataFrame) -> pd.DataFrame:
         now = datetime.datetime.now().date()
@@ -53,18 +54,18 @@ class THandler:
 
 
 class DividendCounter:
-    def __init__(self, ticker: str) -> None:
+    def __init__(self, storage, ticker: str = '') -> None:
         self._ticker = ticker.upper()
         self._stocks_db = self._futures_db = self._stock = self._futures = None
-        self._handler = THandler(FileStorage)
+        self._handler = THandler(storage)
 
-    async def count(self):
+    async def count(self) -> tuple[pd.DataFrame, pd.DataFrame]:
         await self._load_data()
         await self._fill_missing_numbers()
         self._count_dividends()
         return self._futures, self._stock
 
-    def _count_dividends(self):
+    def _count_dividends(self) -> None:
         stock_price: Decimal = self._stock.iloc[0]['price']
         self._futures['dividend'] = self._futures.apply(
             self.count_dividend, axis=1, args=(stock_price,)
@@ -75,12 +76,16 @@ class DividendCounter:
 
     @staticmethod
     def count_dividend(row: pd.Series, stock_price: Decimal) -> float:
-        daily_discount_rate = (
-            Decimal('1') + (Decimal(DISCOUNT_RATE) / 100)
-        ) ** (Decimal('1') / Decimal('365')) - 1
+        daily_discount_rate = Decimal(DISCOUNT_RATE) / Decimal('365') / 100
         present_value = row['price'] / (1 + daily_discount_rate) ** row['days']
         dividend = stock_price - (present_value / row['basic_asset_size'])
         return float(dividend)
+        # daily_discount_rate = (
+        #     Decimal('1') + (Decimal(DISCOUNT_RATE) / 100)
+        # ) ** (Decimal('1') / Decimal('365')) - 1
+        # present_value = row['price'] / (1 + daily_discount_rate) ** row['days']
+        # dividend = stock_price - (present_value / row['basic_asset_size'])
+        # return float(dividend)
 
     async def _fill_missing_numbers(self) -> None:
         self._futures['days'] = (pd.to_datetime(self._futures[
@@ -120,11 +125,11 @@ class DividendCounter:
         if self._futures is None or self._futures.empty:
             raise ValidationError(f'Для тикера {self._ticker} нет фьючерсов')
 
-    async def _update_from_db(self):
+    async def _update_from_db(self) -> None:
         self._stocks_db = await self._handler.get_data('stocks')
         self._futures_db = await self._handler.get_data('futures')
 
-    async def list_available_tickers(self):
+    async def list_available_tickers(self) -> str:
         await self._update_from_db()
         f_tickers = set(self._futures_db['basic_asset'])
         res = sorted([t for t in self._stocks_db['ticker'] if t in f_tickers])
@@ -132,8 +137,9 @@ class DividendCounter:
 
 
 async def main():
-    c = DividendCounter('magn')
+    c = DividendCounter(STORAGE, 'sber')
     print(await c.count())
+    # print(await DividendCounter(storage=STORAGE).list_available_tickers())
 
 
 if __name__ == '__main__':
