@@ -29,4 +29,7 @@ STOCKS_KEEP_COLUMNS = [
 ]
 ORDERBOOK_DEPTH = 1
 DEFAULT_DISCOUNT_RATE = 16
-USER_FIELDS = ['id', 'is_admin', 'active', 'discount_rate', 'force_last_price']
+USER_FIELDS = [
+    'id', 'is_admin', 'approved', 'discount_rate', 'force_last_price'
+]
+DEFAULT_USER_SETTINGS = [False, False, DEFAULT_DISCOUNT_RATE, False]
