@@ -13,7 +13,7 @@ from settings import STORAGE
 from t_api import (fetch_futures, fetch_stocks, get_last_prices,
                    get_orderbook_price, is_trading_now)
 
-FORCE_LAST_PRICE = False
+FORCE_LAST_PRICE = True
 DISCOUNT_RATE = DEFAULT_DISCOUNT_RATE
 
 DATA_FETCHERS = {
