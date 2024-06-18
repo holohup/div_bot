@@ -32,4 +32,4 @@ DEFAULT_DISCOUNT_RATE = 16
 USER_FIELDS = [
     'id', 'is_admin', 'approved', 'discount_rate', 'force_last_price'
 ]
-DEFAULT_USER_SETTINGS = [False, False, DEFAULT_DISCOUNT_RATE, False]
+DEFAULT_USER_SETTINGS = [False, False, DEFAULT_DISCOUNT_RATE, True]

@@ -56,7 +56,8 @@ class THandler:
 class DividendCounter:
     def __init__(self, storage, ticker: str = '') -> None:
         self._ticker = ticker.upper()
-        self._stocks_db = self._futures_db = self._stock = self._futures = None
+        self._stocks_db = self._futures_db = pd.DataFrame()
+        self._stock = self._futures = pd.DataFrame()
         self._handler = THandler(storage)
 
     async def count(self) -> tuple[pd.DataFrame, pd.DataFrame]:
