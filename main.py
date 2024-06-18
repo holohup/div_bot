@@ -29,7 +29,11 @@ async def welcome_new_user(message: Message):
     await message.answer('Добро пожаловать в мир дивибота!')
     await bot.send_message(
         chat_id=TG_ADMIN_ID,
-        text=f'У нас новый пользователь {name}, id={id_}'
+        text=f'У нас новый пользователь {name} id следующим сообщением'
+    )
+    await bot.send_message(
+        chat_id=TG_ADMIN_ID,
+        text=f'{id_}'
     )
 
 
