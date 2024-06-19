@@ -73,7 +73,9 @@ class DividendCounter:
         )
         self._futures[
             'div_percent'
-        ] = 100 * self._futures['dividend'] / float(stock_price)
+        ] = 100 * self._futures['dividend'] / (
+            float(stock_price) * 0.87
+        )
 
     @staticmethod
     def count_dividend(row: pd.Series, stock_price: Decimal) -> float:
