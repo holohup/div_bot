@@ -74,7 +74,7 @@ class DividendCounter:
         self._futures[
             'div_percent'
         ] = 100 * self._futures['dividend'] / (
-            float(stock_price) * 0.87
+            float(stock_price)
         )
 
     @staticmethod
@@ -82,7 +82,7 @@ class DividendCounter:
         daily_discount_rate = Decimal(DISCOUNT_RATE) / Decimal('365') / 100
         present_value = row['price'] / (1 + daily_discount_rate) ** row['days']
         dividend = stock_price - (present_value / row['basic_asset_size'])
-        return float(dividend)
+        return float(dividend / Decimal('0.87'))
         # daily_discount_rate = (
         #     Decimal('1') + (Decimal(DISCOUNT_RATE) / 100)
         # ) ** (Decimal('1') / Decimal('365')) - 1
