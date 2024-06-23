@@ -13,7 +13,7 @@ TCS_ACCOUNT_ID = os.getenv('TG_ACCOUNT_ID', '000')
 TG_BOT_TOKEN = os.getenv(
     'TG_BOT_TOKEN', '123456789:AABBCCDDEEFFaabbccddeeff-1234567890'
 )
-TG_ADMIN_ID = int(os.getenv('TG_ADMIN_ID', '000'))
+TG_ADMIN_IDS = int(os.getenv('TG_ADMIN_IDS', '000'))
 
 FUTURES_KEEP_COLUMNS = [
     'ticker',

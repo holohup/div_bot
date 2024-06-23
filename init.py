@@ -1,4 +1,4 @@
-from settings import TG_ADMIN_ID, STORAGE, USER_FIELDS, DEFAULT_DISCOUNT_RATE
+from settings import TG_ADMIN_IDS, STORAGE, USER_FIELDS, DEFAULT_DISCOUNT_RATE
 import pandas as pd
 import asyncio
 from service import THandler
@@ -15,7 +15,8 @@ async def init_stocks_and_futures_db() -> None:
 async def init_users_db() -> None:
     users_storage = STORAGE('users')
     if not users_storage.exists():
-        admin_row = [TG_ADMIN_ID, True, True, DEFAULT_DISCOUNT_RATE, False]
+        admin_row = [TG_ADMIN_IDS, True, True, DEFAULT_DISCOUNT_RATE, False]
+        print(admin_row)
         df = pd.DataFrame(data=[admin_row], columns=USER_FIELDS)
         users_storage.store_df(df)
 
