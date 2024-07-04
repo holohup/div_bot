@@ -4,6 +4,8 @@ from aiogram.types import Message
 from settings import STORAGE
 from users import IsAdmin, UserHandler, IsApproved
 from service import DividendCounter
+from zoneinfo import ZoneInfo
+from datetime import datetime
 from settings import TG_BOT_TOKEN, TG_ADMIN_IDS
 import pandas as pd
 import logging
@@ -12,6 +14,7 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(TG_BOT_TOKEN)
 dp = Dispatcher()
 user_handler = UserHandler(STORAGE)
+moscow_tz = ZoneInfo('Europe/Moscow')
 
 
 def parse_command(cmd: str) -> str:
@@ -57,6 +60,8 @@ def format_dataframe_as_markdown(df):
 
 @dp.message(IsApproved())
 async def process_other_answers(message: Message):
+    moscow_time = datetime.now(moscow_tz)
+    formatted_time = moscow_time.strftime('%H:%M:%S %d-%m-%y')
     try:
         futures, stock = await DividendCounter(STORAGE, message.text).count()
         short_columns = {
@@ -73,7 +78,8 @@ async def process_other_answers(message: Message):
             ['ticker', 'expires', 'days', 'div', 'div%']
         ].to_string(index=False)
         await message.reply(
-            f"Futures for {stock.iloc[0].ticker}:\n<pre>{df_string}</pre>",
+            f"Futures for {stock.iloc[0].ticker} ({formatted_time}):\n"
+            f"<pre>{df_string}</pre>",
             parse_mode='HTML'
         )
 
