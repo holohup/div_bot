@@ -10,7 +10,6 @@ ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 COPY --from=base /usr/local/lib/python3.9/site-packages/ /usr/local/lib/python3.9/site-packages/
 COPY --from=base /usr/local/bin/ /usr/local/bin/
 WORKDIR /app
-RUN apt-get update && apt-get install libatomic1 -y
-RUN pip install --upgrade pip && pip install libopenblas-dev
+RUN apt-get update && apt-get install libatomic1 libopenblas-dev -y
 COPY . .
 CMD ["python", "main.py"]
