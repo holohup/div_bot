@@ -11,5 +11,6 @@ COPY --from=base /usr/local/lib/python3.9/site-packages/ /usr/local/lib/python3.
 COPY --from=base /usr/local/bin/ /usr/local/bin/
 WORKDIR /app
 RUN apt-get update && apt-get install libatomic1 -y
+RUN pip install libopenblas-dev
 COPY . .
 CMD ["python", "main.py"]
