@@ -85,7 +85,7 @@ class DividendCounter:
     @staticmethod
     def count_fair_spread_price(row: pd.Series, stock_price: Decimal) -> pd.Series:
         daily_discount_rate = Decimal(DISCOUNT_RATE) / Decimal('365') / 100
-        fair_future_price = stock_price * (1 + daily_discount_rate) ** row['days']
+        fair_future_price = stock_price * (1 + daily_discount_rate) ** row['days'] * row['basic_asset_size']
         fair_spread_price = fair_future_price - stock_price * row['basic_asset_size']
         current_spread_price = row['price'] - stock_price * row['basic_asset_size']
         return pd.Series({'current': float(current_spread_price), 'fair': float(fair_spread_price)})
