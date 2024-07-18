@@ -71,11 +71,9 @@ class DividendCounter:
         self._futures['dividend'] = self._futures.apply(
             self.count_dividend, axis=1, args=(stock_price,)
         )
-        self._futures[
-            'div_percent'
-        ] = 100 * self._futures['dividend'] / (
-            float(stock_price)
-        )
+        self._futures['div_percent'] = 100 * self._futures['dividend'] / float(stock_price)
+        fair_prices = self._futures.apply(self.count_fair_spread_price, axis=1, args=(stock_price,))
+        self._futures = pd.concat([self._futures, fair_prices], axis=1)
 
     @staticmethod
     def count_dividend(row: pd.Series, stock_price: Decimal) -> float:
@@ -83,14 +81,14 @@ class DividendCounter:
         present_value = row['price'] / (1 + daily_discount_rate) ** row['days']
         dividend = stock_price - (present_value / row['basic_asset_size'])
         return float(dividend / Decimal('0.87'))
-        # daily_discount_rate = (
-        #     Decimal('1') + (Decimal(DISCOUNT_RATE) / 100)
-        # ) ** (Decimal('1') / Decimal('365')) - 1
-        # present_value = row['price'] / (
-        # 1 + daily_discount_rate
-        # ) ** row['days']
-        # dividend = stock_price - (present_value / row['basic_asset_size'])
-        # return float(dividend)
+
+    @staticmethod
+    def count_fair_spread_price(row: pd.Series, stock_price: Decimal) -> pd.Series:
+        daily_discount_rate = Decimal(DISCOUNT_RATE) / Decimal('365') / 100
+        fair_future_price = row['price'] * (1 + daily_discount_rate) ** row['days']
+        fair_spread_price = fair_future_price - stock_price * row['basic_asset_size']
+        current_spread_price = row['price'] - stock_price * row['basic_asset_size']
+        return pd.Series({'current': float(current_spread_price), 'fair': float(fair_spread_price)})
 
     async def _fill_missing_numbers(self) -> None:
         self._futures['days'] = (pd.to_datetime(self._futures[

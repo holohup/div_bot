@@ -11,6 +11,7 @@ import pandas as pd
 import logging
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 bot = Bot(TG_BOT_TOKEN)
 dp = Dispatcher()
 user_handler = UserHandler(STORAGE)
@@ -51,11 +52,18 @@ async def process_ticker_list(message: Message):
     )
 
 
-def format_dataframe_as_markdown(df):
-    from tabulate import tabulate
-    # Using tabulate library to create Markdown table
-    table = tabulate(df, headers='keys', tablefmt='pipe')
-    return f"```\n{table}\n```"
+@dp.message(IsApproved(), Command(commands='d'))
+async def process_details(message: Message):
+    ticker = parse_command(message.text)
+    moscow_time = datetime.now(moscow_tz)
+    formatted_time = moscow_time.strftime('%H:%M:%S %d-%m-%y')
+    futures, stock = await DividendCounter(STORAGE, ticker).count()
+    df_string = format_details_message(futures)
+    await message.reply(
+        f"Futures for {stock.iloc[0].ticker} ({formatted_time}):\n"
+        f"<pre>{df_string}</pre>",
+        parse_mode='HTML'
+    )
 
 
 @dp.message(IsApproved())
@@ -64,19 +72,7 @@ async def process_other_answers(message: Message):
     formatted_time = moscow_time.strftime('%H:%M:%S %d-%m-%y')
     try:
         futures, stock = await DividendCounter(STORAGE, message.text).count()
-        short_columns = {
-            'expiration_date': 'expires',
-            'div_percent': 'div%',
-            'dividend': 'div'
-        }
-        futures = futures.rename(columns=short_columns)
-        futures['div'] = futures['div'].round(2)
-        futures['div%'] = futures['div%'].round(2)
-        futures['expires'] = pd.to_datetime(futures['expires'])
-        futures['expires'] = futures['expires'].dt.strftime('%d.%m.%y')
-        df_string = futures[
-            ['ticker', 'expires', 'days', 'div', 'div%']
-        ].to_string(index=False)
+        df_string = format_message(futures)
         await message.reply(
             f"Futures for {stock.iloc[0].ticker} ({formatted_time}):\n"
             f"<pre>{df_string}</pre>",
@@ -87,5 +83,44 @@ async def process_other_answers(message: Message):
         await message.answer(str(e))
 
 
+def format_message(futures):
+    short_columns = {
+            'expiration_date': 'expires',
+            'div_percent': 'div%',
+            'dividend': 'div'
+        }
+    futures = futures.rename(columns=short_columns)
+    futures['div'] = futures['div'].round(2)
+    futures['div%'] = futures['div%'].round(2)
+    futures['expires'] = pd.to_datetime(futures['expires'])
+    futures['expires'] = futures['expires'].dt.strftime('%d.%m.%y')
+    df_string = futures[
+            ['ticker', 'expires', 'days', 'div', 'div%']
+        ].to_string(index=False)
+
+    return df_string
+
+
+def format_details_message(futures):
+    short_columns = {
+            'expiration_date': 'expires',
+            'div_percent': 'div%',
+            'dividend': 'div'
+        }
+    futures = futures.rename(columns=short_columns)
+    futures['div'] = futures['div'].round(2)
+    futures['expires'] = pd.to_datetime(futures['expires'])
+    futures['expires'] = futures['expires'].dt.strftime('%d.%m.%y')
+    futures['fair'] = futures['fair'].round(2)
+    futures['current'] = futures['current'].round(2)
+    df_string = futures[
+            ['ticker', 'expires', 'days', 'div', 'div%', 'current', 'fair']
+        ].to_string(index=False)
+
+    return df_string
+
 if __name__ == '__main__':
-    dp.run_polling(bot)
+    try:
+        dp.run_polling(bot)
+    except Exception as e:
+        logger.exception(str(e.__traceback__))
