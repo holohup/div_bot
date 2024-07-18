@@ -109,6 +109,7 @@ def format_details_message(futures):
         }
     futures = futures.rename(columns=short_columns)
     futures['div'] = futures['div'].round(2)
+    futures['div%'] = futures['div%'].round(2)
     futures['expires'] = pd.to_datetime(futures['expires'])
     futures['expires'] = futures['expires'].dt.strftime('%d.%m.%y')
     futures['fair'] = futures['fair'].round(2)
