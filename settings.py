@@ -28,7 +28,7 @@ STOCKS_KEEP_COLUMNS = [
     'uid',
 ]
 ORDERBOOK_DEPTH = 1
-DEFAULT_DISCOUNT_RATE = 16
+DEFAULT_DISCOUNT_RATE = 18
 USER_FIELDS = [
     'id', 'is_admin', 'approved', 'discount_rate', 'force_last_price'
 ]

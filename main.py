@@ -3,7 +3,7 @@ from aiogram.filters import Command
 from aiogram.types import Message
 from settings import STORAGE
 from users import IsAdmin, UserHandler, IsApproved
-from service import DividendCounter
+from service import DividendCounter, DISCOUNT_RATE
 from zoneinfo import ZoneInfo
 from datetime import datetime
 from settings import TG_BOT_TOKEN, TG_ADMIN_IDS
@@ -74,7 +74,7 @@ async def process_other_answers(message: Message):
         futures, stock = await DividendCounter(STORAGE, message.text).count()
         df_string = format_message(futures)
         await message.reply(
-            f"Futures for {stock.iloc[0].ticker} ({formatted_time}):\n"
+            f"Futures for {stock.iloc[0].ticker} ({formatted_time}), discount rate = {DISCOUNT_RATE}:\n"
             f"<pre>{df_string}</pre>",
             parse_mode='HTML'
         )
