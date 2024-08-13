@@ -107,7 +107,7 @@ class DividendCounter:
                     'stock_price': round(float(stock.price), 2),
                     'future_ticker': future.ticker,
                     'expires': future.expiration_date,
-                    'future_price': round(float(future.price), 2),
+                    # 'future_price': round(float(future.price), 2),
                     'days': future.days,
                     'dividend': round(float(future.dividend), 2)
                 })

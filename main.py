@@ -2,6 +2,8 @@ from aiogram import Bot, Dispatcher
 from aiogram.types import FSInputFile
 from aiogram.filters import Command
 from aiogram.types import Message
+import openpyxl
+from openpyxl.styles import Border, Side
 from settings import STORAGE
 from users import IsAdmin, UserHandler, IsApproved
 from service import DividendCounter, DISCOUNT_RATE
@@ -70,6 +72,36 @@ async def process_details(message: Message):
 @dp.message(IsApproved(), Command(commands='all'))
 async def process_full_list(message: Message):
     filename = await DividendCounter(STORAGE).count_all()
+    wb = openpyxl.load_workbook(filename)
+    ws = wb.active
+    thin_border = Border(
+        left=Side(style='thin', color='000000'),
+        right=Side(style='thin', color='000000'),
+        top=Side(style='thin', color='000000'),
+        bottom=Side(style='thin', color='000000')
+    )
+    current_ticker = None
+    start_row = 1
+    for row in range(2, ws.max_row + 1):  # Start from the second row, assuming the first row is a header
+        ticker = ws.cell(row=row, column=1).value
+        
+        if ticker != current_ticker:
+            if current_ticker is not None:
+                # Apply borders to the previous ticker group
+                for r in range(start_row, row):
+                    for c in range(1, ws.max_column + 1):
+                        ws.cell(row=r, column=c).border = thin_border
+            # Update for the new ticker group
+            current_ticker = ticker
+            start_row = row
+
+    # Apply borders to the last ticker group
+    for r in range(start_row, ws.max_row + 1):
+        for c in range(1, ws.max_column + 1):
+            ws.cell(row=r, column=c).border = thin_border
+
+    # Save the modified Excel file
+    wb.save(filename)
     result = FSInputFile(filename)
     await message.answer_document(result)
 
