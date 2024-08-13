@@ -1,4 +1,5 @@
 from aiogram import Bot, Dispatcher
+from aiogram.types import FSInputFile
 from aiogram.filters import Command
 from aiogram.types import Message
 from settings import STORAGE
@@ -64,6 +65,13 @@ async def process_details(message: Message):
         f"<pre>{df_string}</pre>",
         parse_mode='HTML'
     )
+
+
+@dp.message(IsApproved(), Command(commands='all'))
+async def process_full_list(message: Message):
+    filename = await DividendCounter(STORAGE).count_all()
+    result = FSInputFile(filename)
+    await message.answer_document(result)
 
 
 @dp.message(IsApproved())

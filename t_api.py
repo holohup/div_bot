@@ -3,7 +3,7 @@ from decimal import Decimal
 import pandas as pd
 from tinkoff.invest.retrying.aio.client import AsyncRetryingClient
 from tinkoff.invest.schemas import InstrumentIdType as IdType
-from tinkoff.invest.schemas import SecurityTradingStatus as TStatus
+from tinkoff.invest.schemas import SecurityTradingStatus as TStatus, GetLastPricesResponse, LastPriceType
 from tinkoff.invest.utils import quotation_to_decimal
 
 from settings import ORDERBOOK_DEPTH, RETRY_SETTINGS, TCS_RO_TOKEN
@@ -42,8 +42,8 @@ async def get_last_prices(uids: pd.Series) -> list[Decimal]:
     async with AsyncRetryingClient(
         TCS_RO_TOKEN, settings=RETRY_SETTINGS
     ) as client:
-        response = await client.market_data.get_last_prices(
-            instrument_id=uids.to_list()
+        response: GetLastPricesResponse = await client.market_data.get_last_prices(
+            instrument_id=uids.to_list(), last_price_type=LastPriceType.LAST_PRICE_EXCHANGE
         )
         result = [quotation_to_decimal(p.price) for p in response.last_prices]
         return result
