@@ -75,36 +75,40 @@ async def process_full_list(message: Message):
     wb = openpyxl.load_workbook(filename)
     ws = wb.active
     thin_border = Border(
-        left=Side(style='thin', color='000000'),
-        right=Side(style='thin', color='000000'),
-        top=Side(style='thin', color='000000'),
-        bottom=Side(style='thin', color='000000')
+        left=Side(style='medium', color='000000'),
+        right=Side(style='medium', color='000000'),
+        top=Side(style='medium', color='000000'),
+        bottom=Side(style='medium', color='000000')
     )
     current_ticker = None
-    start_row = 1
-    for row in range(2, ws.max_row + 1):  # Start from the second row, assuming the first row is a header
+    start_row = 2  # Start from the second row, assuming the first row is a header
+
+    for row in range(2, ws.max_row + 1):  # Iterate through rows
         ticker = ws.cell(row=row, column=2).value
-        
         if ticker != current_ticker:
             if current_ticker is not None:
-                # Apply borders to the previous ticker group
-                for r in range(start_row, row):
-                    for c in range(1, ws.max_column + 1):
-                        ws.cell(row=r, column=c).border = thin_border
+                # Apply border to the previous ticker group
+                for c in range(1, ws.max_column + 1):
+                    ws.cell(row=start_row, column=c).border = Border(top=thin_border.top)  # Top border for the group
+                    ws.cell(row=row-1, column=c).border = Border(bottom=thin_border.bottom)  # Bottom border for the group
+                ws.cell(row=start_row, column=1).border = Border(left=thin_border.left)  # Left border for the first column
+                ws.cell(row=row-1, column=ws.max_column).border = Border(right=thin_border.right)  # Right border for the last column
+            
             # Update for the new ticker group
             current_ticker = ticker
             start_row = row
 
-    # Apply borders to the last ticker group
-    for r in range(start_row, ws.max_row + 1):
-        for c in range(1, ws.max_column + 1):
-            ws.cell(row=r, column=c).border = thin_border
+    # Apply border to the last ticker group
+    for c in range(1, ws.max_column + 1):
+        ws.cell(row=start_row, column=c).border = Border(top=thin_border.top)
+        ws.cell(row=ws.max_row, column=c).border = Border(bottom=thin_border.bottom)
+    ws.cell(row=start_row, column=1).border = Border(left=thin_border.left)
+    ws.cell(row=ws.max_row, column=ws.max_column).border = Border(right=thin_border.right)
 
     # Save the modified Excel file
     wb.save(filename)
     result = FSInputFile(filename)
     await message.answer_document(result)
-
 
 @dp.message(IsApproved())
 async def process_other_answers(message: Message):
