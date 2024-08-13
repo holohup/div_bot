@@ -75,15 +75,15 @@ async def process_full_list(message: Message):
     wb = openpyxl.load_workbook(filename)
     ws = wb.active
     thin_border = Border(
-        left=Side(style='medium', color='000000'),
-        right=Side(style='medium', color='000000'),
-        top=Side(style='medium', color='000000'),
-        bottom=Side(style='medium', color='000000')
+        left=Side(style='thin', color='000000'),
+        right=Side(style='thin', color='000000'),
+        top=Side(style='thin', color='000000'),
+        bottom=Side(style='thin', color='000000')
     )
     current_ticker = None
     start_row = 1
     for row in range(2, ws.max_row + 1):  # Start from the second row, assuming the first row is a header
-        ticker = ws.cell(row=row, column=1).value
+        ticker = ws.cell(row=row, column=2).value
         
         if ticker != current_ticker:
             if current_ticker is not None:
