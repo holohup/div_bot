@@ -83,7 +83,7 @@ async def process_full_list(message: Message):
     
     # Add meta information
     meta_info = [
-        f"Репорт по дивам {datetime.now().strftime('%d-%m-%Y %H:%M:%S')}",
+        f"Репорт по дивам {datetime.now(moscow_tz).strftime('%d-%m-%Y %H:%M:%S')}",
         f'Ставка: {DISCOUNT_RATE}% годовых'
     ]
     
