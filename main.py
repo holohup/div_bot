@@ -72,8 +72,34 @@ async def process_details(message: Message):
 @dp.message(IsApproved(), Command(commands='all'))
 async def process_full_list(message: Message):
     filename = await DividendCounter(STORAGE).count_all()
-    wb = openpyxl.load_workbook(filename)
-    ws = wb.active
+    
+    # Load the existing workbook
+    existing_wb = openpyxl.load_workbook(filename)
+    existing_ws = existing_wb.active
+    
+    # Create a new workbook for the final output
+    new_wb = openpyxl.Workbook()
+    new_ws = new_wb.active
+    
+    # Add meta information
+    meta_info = [
+        f"Репорт по дивам {datetime.now().strftime('%d-%m-%Y %H:%M:%S')}",
+        f'Ставка: {DISCOUNT_RATE}% годовых'
+    ]
+    
+    for index, info in enumerate(meta_info, start=1):
+        new_ws.merge_cells(start_row=index, start_column=1, end_row=index, end_column=existing_ws.max_column)
+        new_ws.cell(row=index, column=1).value = info
+    
+    # Start appending data from the existing file after the metadata
+    start_row = len(meta_info) + 2  # One additional row for spacing
+    
+    for row in existing_ws.iter_rows(min_row=1, max_row=existing_ws.max_row, max_col=existing_ws.max_column):
+        for col_index, cell in enumerate(row, start=1):
+            new_ws.cell(row=start_row, column=col_index).value = cell.value
+        start_row += 1
+    
+    # Apply borders to the new worksheet as needed
     thin_border = Border(
         left=Side(style='medium', color='000000'),
         right=Side(style='medium', color='000000'),
@@ -81,34 +107,25 @@ async def process_full_list(message: Message):
         bottom=Side(style='medium', color='000000')
     )
     current_ticker = None
-    start_row = 2  # Start from the second row, assuming the first row is a header
 
-    for row in range(2, ws.max_row + 1):  # Iterate through rows
-        ticker = ws.cell(row=row, column=2).value
+    # Iterate through the rows in the new sheet to apply borders
+    for row in range(len(meta_info) + 2, new_ws.max_row + 1):
+        ticker = new_ws.cell(row=row, column=2).value
         if ticker != current_ticker:
             if current_ticker is not None:
-                # Apply border to the previous ticker group
-                for c in range(1, ws.max_column + 1):
-                    ws.cell(row=start_row, column=c).border = Border(top=thin_border.top)  # Top border for the group
-                    ws.cell(row=row-1, column=c).border = Border(bottom=thin_border.bottom)  # Bottom border for the group
-                ws.cell(row=start_row, column=1).border = Border(left=thin_border.left)  # Left border for the first column
-                ws.cell(row=row-1, column=ws.max_column).border = Border(right=thin_border.right)  # Right border for the last column
-            
-            # Update for the new ticker group
+                for c in range(1, new_ws.max_column + 1):
+                    new_ws.cell(row=row, column=c).border = Border(top=thin_border.top)
+
             current_ticker = ticker
-            start_row = row
 
-    # Apply border to the last ticker group
-    for c in range(1, ws.max_column + 1):
-        ws.cell(row=start_row, column=c).border = Border(top=thin_border.top)
-        ws.cell(row=ws.max_row, column=c).border = Border(bottom=thin_border.bottom)
-    ws.cell(row=start_row, column=1).border = Border(left=thin_border.left)
-    ws.cell(row=ws.max_row, column=ws.max_column).border = Border(right=thin_border.right)
+    # Save the new workbook
+    new_filename = 'final_report.xlsx'
+    new_wb.save(new_filename)
 
-    # Save the modified Excel file
-    wb.save(filename)
-    result = FSInputFile(filename)
+    # Send the new file to the user
+    result = FSInputFile(new_filename)
     await message.answer_document(result)
+
 
 @dp.message(IsApproved())
 async def process_other_answers(message: Message):

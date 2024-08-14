@@ -85,10 +85,11 @@ class DividendCounter:
             drop=True
         )
         combined_uids['price'] = await get_last_prices(combined_uids['uid'])
-        stocks_with_prices = combined_uids[:len(stocks_with_futures)][['ticker', 'price']].reset_index(drop=True)
+        stocks_with_prices = combined_uids[:len(stocks_with_futures)][['ticker', 'price']].reset_index(
+            drop=True
+        ).sort_values(by='ticker')
         futures_with_prices = combined_uids[len(stocks_with_futures):]
         futures_with_prices = futures_with_prices[futures_with_prices['price'] > 0].reset_index(drop=True)
-        result = pd.DataFrame()
         res = []
         for stock in stocks_with_prices.itertuples():
             futures = futures_with_prices[
@@ -103,18 +104,18 @@ class DividendCounter:
             futures['dividend'] = futures.apply(self.count_dividend, axis=1, args=(stock.price,))
             for future in futures.itertuples():
                 res.append({
-                    'stock_ticker': stock.ticker,
-                    'stock_price': round(float(stock.price), 2),
-                    'future_ticker': future.ticker,
-                    'expires': future.expiration_date,
+                    'тикер': stock.ticker,
+                    'цена': round(float(stock.price), 2),
+                    'тикер фьюча': future.ticker,
+                    'экспира': future.expiration_date,
                     # 'future_price': round(float(future.price), 2),
-                    'days': future.days,
-                    'dividend': round(float(future.dividend), 2)
+                    'дней': future.days,
+                    'дивиденд': round(float(future.dividend), 2)
                 })
             result = pd.DataFrame(res)
         filename = 'result.xlsx'
         with pd.ExcelWriter(filename) as writer:
-            result.to_excel(writer, sheet_name='Подробно')
+            result.to_excel(writer, sheet_name='Подробно', index=False)
         return filename
 
     def _count_dividends(self) -> None:
