@@ -1,4 +1,4 @@
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, F
 from aiogram.types import FSInputFile
 from aiogram.filters import Command
 from aiogram.types import Message
@@ -6,7 +6,7 @@ import openpyxl
 from openpyxl.styles import Border, Side
 from settings import STORAGE
 from users import IsAdmin, UserHandler, IsApproved
-from service import DividendCounter, DISCOUNT_RATE
+from service import DividendCounter, DISCOUNT_RATE, IndexCounter
 from zoneinfo import ZoneInfo
 from datetime import datetime
 from settings import TG_BOT_TOKEN, TG_ADMIN_IDS
@@ -66,6 +66,14 @@ async def process_details(message: Message):
         f"Futures for {stock.iloc[0].ticker} ({formatted_time}):\n"
         f"<pre>{df_string}</pre>",
         parse_mode='HTML'
+    )
+
+
+@dp.message(IsApproved(), F.text.lower() == 'ind')
+async def process_index(message: Message):
+    result = await IndexCounter().run()
+    await message.reply(
+        f'Current index futures {result}'
     )
 
 

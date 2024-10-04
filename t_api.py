@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pandas as pd
 from tinkoff.invest.retrying.aio.client import AsyncRetryingClient
-from tinkoff.invest.schemas import InstrumentIdType as IdType
+from tinkoff.invest.schemas import InstrumentIdType as IdType, IndicativesRequest
 from tinkoff.invest.schemas import SecurityTradingStatus as TStatus, GetLastPricesResponse, LastPriceType
 from tinkoff.invest.utils import quotation_to_decimal
 
@@ -21,8 +21,12 @@ async def fetch_stocks() -> pd.DataFrame:
     async with AsyncRetryingClient(
         TCS_RO_TOKEN, settings=RETRY_SETTINGS
     ) as client:
-        response = await client.instruments.shares()
-        return pd.DataFrame(response.instruments)
+        response_shares = await client.instruments.shares()
+        response_indicatives = await client.instruments.indicatives(request=IndicativesRequest())
+    shares_df = pd.DataFrame(response_shares.instruments)
+    indicatives_df = pd.DataFrame(response_indicatives.instruments)
+    result = pd.concat([shares_df, indicatives_df], ignore_index=True)
+    return result
 
 
 async def is_trading_now(future: pd.Series):
@@ -58,3 +62,10 @@ async def get_orderbook_price(uid: str, sell: bool) -> Decimal:
         )
     result = ob.bids[0] if sell else ob.asks[0]
     return quotation_to_decimal(result.price)
+
+
+async def get_index_futures():
+    async with AsyncRetryingClient(TCS_RO_TOKEN, settings=RETRY_SETTINGS) as client:
+        response = await client.instruments.indicatives(request=IndicativesRequest())
+    all_indexes = pd.DataFrame(response.instruments)
+    return all_indexes[(all_indexes['ticker'] == 'IMOEX') | (all_indexes['ticker'] == 'RTSI')]

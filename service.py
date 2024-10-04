@@ -15,6 +15,7 @@ from t_api import (
     get_last_prices,
     get_orderbook_price,
     is_trading_now,
+    get_index_futures
 )
 
 FORCE_LAST_PRICE = True
@@ -38,7 +39,7 @@ class THandler:
     async def update_data(self, dt: Literal['futures', 'stocks'], data):
         if not data.is_updated():
             df = await DATA_FETCHERS[dt]()
-            df = df[df['real_exchange'] == RealExchange.REAL_EXCHANGE_MOEX]
+            df = df[(df['real_exchange'] == RealExchange.REAL_EXCHANGE_MOEX) | (df['ticker'] == 'IMOEX') | (df['ticker'] == 'RTSI')]
             if dt == 'futures':
                 df = self._apply_futures_filters(df)
                 df = df[FUTURES_KEEP_COLUMNS]
@@ -51,10 +52,18 @@ class THandler:
 
     def _apply_futures_filters(self, df: pd.DataFrame) -> pd.DataFrame:
         now = datetime.datetime.now().date()
+        # df.to_csv('test_futures.csv', index=False)
         df['expiration_date'] = pd.to_datetime(df['expiration_date']).dt.date
         df = df[df['expiration_date'] > now + datetime.timedelta(days=3)]
-        df = df[df['asset_type'] == 'TYPE_SECURITY']
+        df = df[(df['asset_type'] == 'TYPE_SECURITY') | ((df['asset_type'] == 'TYPE_INDEX') & df['name'].str.contains('мини', na=False))]
         return df
+
+
+class IndexCounter:
+    async def run(self):
+        index_futures = await get_index_futures()
+        index_futures['current_prices'] = await get_last_prices(index_futures['uid'])
+        return index_futures
 
 
 class DividendCounter:
@@ -202,6 +211,7 @@ async def main():
     c = DividendCounter(STORAGE, 'sber')
     print(await c.count_all())
     # print(await DividendCounter(storage=STORAGE).list_available_tickers())
+
 
 
 if __name__ == '__main__':
