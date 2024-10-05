@@ -19,6 +19,7 @@ bot = Bot(TG_BOT_TOKEN)
 dp = Dispatcher()
 user_handler = UserHandler(STORAGE)
 moscow_tz = ZoneInfo('Europe/Moscow')
+pd.options.display.float_format = '{:.2f}'.format
 
 
 def parse_command(cmd: str) -> str:
@@ -185,7 +186,6 @@ def format_details_message(futures):
     futures['expires'] = futures['expires'].dt.strftime('%d.%m.%y')
     futures['fair'] = futures['fair'].round(2)
     futures['current'] = futures['current'].round(2)
-    print(futures)
     df_string = futures[
             ['ticker', 'expires', 'days', 'div', 'div%', 'current', 'fair', 's_m', 'b_m']
         ].to_string(index=False)

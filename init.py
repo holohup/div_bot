@@ -16,7 +16,6 @@ async def init_users_db() -> None:
     users_storage = STORAGE('users')
     if not users_storage.exists():
         admin_row = [TG_ADMIN_IDS, True, True, DEFAULT_DISCOUNT_RATE, False]
-        print(admin_row)
         df = pd.DataFrame(data=[admin_row], columns=USER_FIELDS)
         users_storage.store_df(df)
 

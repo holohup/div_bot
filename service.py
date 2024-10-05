@@ -169,12 +169,10 @@ class DividendCounter:
         self._futures['buy_margin'] = self._futures.apply(
             self._buy_spread_margin, axis=1, args=(stock_price,)
         )
-        print(self._futures)
         self._futures = pd.concat([self._futures, fair_prices], axis=1)
 
     @staticmethod
     def _sell_spread_margin(row: pd.Series, stock_price: Decimal) -> int:
-        print(f'{stock_price=}, {Decimal(row["basic_asset_size"])=}, {row["price"]=}, {Decimal(row["initial_margin_on_sell"])=}')
         return int(
             (stock_price * Decimal(row['basic_asset_size']))
             # - row['price']
@@ -256,7 +254,6 @@ class DividendCounter:
 async def main():
     c = DividendCounter(STORAGE, 'sber')
     print(await c.count_all())
-    # print(await DividendCounter(storage=STORAGE).list_available_tickers())
 
 
 if __name__ == '__main__':
