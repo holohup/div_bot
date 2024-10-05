@@ -174,7 +174,9 @@ def format_details_message(futures):
     short_columns = {
             'expiration_date': 'expires',
             'div_percent': 'div%',
-            'dividend': 'div'
+            'dividend': 'div',
+            'sell_margin': 's_m',
+            'buy_margin': 'b_m'
         }
     futures = futures.rename(columns=short_columns)
     futures['div'] = futures['div'].round(2)
@@ -183,8 +185,9 @@ def format_details_message(futures):
     futures['expires'] = futures['expires'].dt.strftime('%d.%m.%y')
     futures['fair'] = futures['fair'].round(2)
     futures['current'] = futures['current'].round(2)
+    print(futures)
     df_string = futures[
-            ['ticker', 'expires', 'days', 'div', 'div%', 'current', 'fair']
+            ['ticker', 'expires', 'days', 'div', 'div%', 'current', 'fair', 's_m', 'b_m']
         ].to_string(index=False)
 
     return df_string

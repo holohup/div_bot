@@ -4,7 +4,8 @@ from decimal import Decimal
 from typing import Literal
 
 import pandas as pd
-from tinkoff.invest.schemas import RealExchange
+from tinkoff.invest.schemas import RealExchange, MoneyValue, Quotation
+from tinkoff.invest.utils import quotation_to_decimal
 
 from exceptions import ValidationError
 from settings import DEFAULT_DISCOUNT_RATE, FUTURES_KEEP_COLUMNS, STOCKS_KEEP_COLUMNS
@@ -15,7 +16,7 @@ from t_api import (
     get_last_prices,
     get_orderbook_price,
     is_trading_now,
-    get_index_futures
+    get_index_futures,
 )
 
 FORCE_LAST_PRICE = True
@@ -39,12 +40,20 @@ class THandler:
     async def update_data(self, dt: Literal['futures', 'stocks'], data):
         if not data.is_updated():
             df = await DATA_FETCHERS[dt]()
-            df = df[(df['real_exchange'] == RealExchange.REAL_EXCHANGE_MOEX) | (df['ticker'] == 'IMOEX') | (df['ticker'] == 'RTSI')]
+            df = df[
+                (df['real_exchange'] == RealExchange.REAL_EXCHANGE_MOEX)
+                | (df['ticker'] == 'IMOEX')
+                | (df['ticker'] == 'RTSI')
+            ]
             if dt == 'futures':
                 df = self._apply_futures_filters(df)
                 df = df[FUTURES_KEEP_COLUMNS]
-                df['basic_asset_size'] = df['basic_asset_size'].apply(
-                    lambda a: a['units']
+                df['basic_asset_size'] = df['basic_asset_size'].apply(lambda a: a['units'])
+                df['initial_margin_on_buy'] = df['initial_margin_on_buy'].apply(
+                    lambda a: quotation_to_decimal(MoneyValue(**a))
+                )
+                df['initial_margin_on_sell'] = df['initial_margin_on_sell'].apply(
+                    lambda a: quotation_to_decimal(MoneyValue(**a))
                 )
             elif dt == 'stocks':
                 df = df[STOCKS_KEEP_COLUMNS]
@@ -55,7 +64,13 @@ class THandler:
         # df.to_csv('test_futures.csv', index=False)
         df['expiration_date'] = pd.to_datetime(df['expiration_date']).dt.date
         df = df[df['expiration_date'] > now + datetime.timedelta(days=3)]
-        df = df[(df['asset_type'] == 'TYPE_SECURITY') | ((df['asset_type'] == 'TYPE_INDEX') & df['name'].str.contains('мини', na=False))]
+        df = df[
+            (df['asset_type'] == 'TYPE_SECURITY')
+            | (
+                (df['asset_type'] == 'TYPE_INDEX')
+                & df['name'].str.contains('мини', na=False)
+            )
+        ]
         return df
 
 
@@ -94,33 +109,43 @@ class DividendCounter:
             drop=True
         )
         combined_uids['price'] = await get_last_prices(combined_uids['uid'])
-        stocks_with_prices = combined_uids[:len(stocks_with_futures)][['ticker', 'price']].reset_index(
-            drop=True
-        ).sort_values(by='ticker')
-        futures_with_prices = combined_uids[len(stocks_with_futures):]
-        futures_with_prices = futures_with_prices[futures_with_prices['price'] > 0].reset_index(drop=True)
+        stocks_with_prices = (
+            combined_uids[: len(stocks_with_futures)][['ticker', 'price']]
+            .reset_index(drop=True)
+            .sort_values(by='ticker')
+        )
+        futures_with_prices = combined_uids[len(stocks_with_futures) :]
+        futures_with_prices = futures_with_prices[
+            futures_with_prices['price'] > 0
+        ].reset_index(drop=True)
         res = []
         for stock in stocks_with_prices.itertuples():
-            futures = futures_with_prices[
-                futures_with_prices['basic_asset'] == stock.ticker
-            ].sort_values(by='expiration_date', ascending=True).copy()
+            futures = (
+                futures_with_prices[futures_with_prices['basic_asset'] == stock.ticker]
+                .sort_values(by='expiration_date', ascending=True)
+                .copy()
+            )
             if len(futures) < 1:
                 continue
             futures['days'] = (
                 pd.to_datetime(futures['expiration_date']).dt.date
                 - datetime.datetime.now().date()
             ).apply(lambda d: d.days)
-            futures['dividend'] = futures.apply(self.count_dividend, axis=1, args=(stock.price,))
+            futures['dividend'] = futures.apply(
+                self.count_dividend, axis=1, args=(stock.price,)
+            )
             for future in futures.itertuples():
-                res.append({
-                    'тикер': stock.ticker,
-                    'цена': round(float(stock.price), 2),
-                    'тикер фьюча': future.ticker,
-                    'экспира': future.expiration_date,
-                    # 'future_price': round(float(future.price), 2),
-                    'дней': future.days,
-                    'дивиденд': round(float(future.dividend), 2)
-                })
+                res.append(
+                    {
+                        'тикер': stock.ticker,
+                        'цена': round(float(stock.price), 2),
+                        'тикер фьюча': future.ticker,
+                        'экспира': future.expiration_date,
+                        # 'future_price': round(float(future.price), 2),
+                        'дней': future.days,
+                        'дивиденд': round(float(future.dividend), 2),
+                    }
+                )
             result = pd.DataFrame(res)
         filename = 'result.xlsx'
         with pd.ExcelWriter(filename) as writer:
@@ -138,7 +163,28 @@ class DividendCounter:
         fair_prices = self._futures.apply(
             self.count_fair_spread_price, axis=1, args=(stock_price,)
         )
+        self._futures['sell_margin'] = self._futures.apply(
+            self._sell_spread_margin, axis=1, args=(stock_price,)
+        )
+        self._futures['buy_margin'] = self._futures.apply(
+            self._buy_spread_margin, axis=1, args=(stock_price,)
+        )
+        print(self._futures)
         self._futures = pd.concat([self._futures, fair_prices], axis=1)
+
+    @staticmethod
+    def _sell_spread_margin(row: pd.Series, stock_price: Decimal) -> int:
+        print(f'{stock_price=}, {Decimal(row["basic_asset_size"])=}, {row["price"]=}, {Decimal(row["initial_margin_on_sell"])=}')
+        return int(
+            (stock_price * Decimal(row['basic_asset_size']))
+            # - row['price']
+            + Decimal(row['initial_margin_on_sell'])
+        )
+
+    @staticmethod
+    def _buy_spread_margin(row: pd.Series, stock_price: Decimal) -> int:
+        return int(stock_price * Decimal(row['basic_asset_size']))
+
 
     @staticmethod
     def count_dividend(row: pd.Series, stock_price: Decimal) -> float:
@@ -211,7 +257,6 @@ async def main():
     c = DividendCounter(STORAGE, 'sber')
     print(await c.count_all())
     # print(await DividendCounter(storage=STORAGE).list_available_tickers())
-
 
 
 if __name__ == '__main__':

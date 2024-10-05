@@ -3,8 +3,9 @@ from decimal import Decimal
 import pandas as pd
 from tinkoff.invest.retrying.aio.client import AsyncRetryingClient
 from tinkoff.invest.schemas import InstrumentIdType as IdType, IndicativesRequest
-from tinkoff.invest.schemas import SecurityTradingStatus as TStatus, GetLastPricesResponse, LastPriceType
+from tinkoff.invest.schemas import SecurityTradingStatus as TStatus, GetLastPricesResponse, LastPriceType, MoneyValue
 from tinkoff.invest.utils import quotation_to_decimal
+
 
 from settings import ORDERBOOK_DEPTH, RETRY_SETTINGS, TCS_RO_TOKEN
 
@@ -14,7 +15,8 @@ async def fetch_futures() -> pd.DataFrame:
         TCS_RO_TOKEN, settings=RETRY_SETTINGS
     ) as client:
         response = await client.instruments.futures()
-        return pd.DataFrame(response.instruments)
+    result = pd.DataFrame(response.instruments)
+    return result
 
 
 async def fetch_stocks() -> pd.DataFrame:

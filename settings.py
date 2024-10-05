@@ -21,6 +21,8 @@ FUTURES_KEEP_COLUMNS = [
     'basic_asset_size',
     'expiration_date',
     'uid',
+    'initial_margin_on_sell',
+    'initial_margin_on_buy'
 ]
 STOCKS_KEEP_COLUMNS = [
     'ticker',
