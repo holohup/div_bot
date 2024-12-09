@@ -66,10 +66,7 @@ class THandler:
         df = df[df['expiration_date'] > now + datetime.timedelta(days=3)]
         df = df[
             (df['asset_type'] == 'TYPE_SECURITY')
-            | (
-                (df['asset_type'] == 'TYPE_INDEX')
-                & df['name'].str.contains('мини', na=False)
-            )
+            | ((df['asset_type'] == 'TYPE_INDEX') & df['name'].str.contains('(мини)', na=False))
         ]
         return df
 
@@ -84,6 +81,7 @@ class IndexCounter:
 class DividendCounter:
     def __init__(self, storage, ticker: str = '') -> None:
         self._ticker = ticker.upper()
+        self._position_uid = None
         self._stocks_db = self._futures_db = pd.DataFrame()
         self._stock = self._futures = pd.DataFrame()
         self._handler = THandler(storage)
@@ -102,22 +100,26 @@ class DividendCounter:
             .copy()
         )
         stock_tickers = set(self._futures_db['basic_asset'])
-        stocks_with_futures = self._stocks_db[
-            self._stocks_db['ticker'].isin(stock_tickers)
-        ]
-        combined_uids = pd.concat([stocks_with_futures, self._futures_db]).reset_index(
-            drop=True
-        )
-        combined_uids['price'] = await get_last_prices(combined_uids['uid'])
+        stocks_with_futures = self._stocks_db[self._stocks_db['ticker'].isin(stock_tickers)]
+        combined_uids = pd.concat([stocks_with_futures, self._futures_db]).reset_index(drop=True)
+
+        futures_prices = await get_last_prices(combined_uids['uid'])
+        # futures_prices is now a list of AssetPrice(price=Decimal(...), uid='...')
+
+        # 2. Create a mapping from uid to price
+        price_map = {fp.uid: fp.price for fp in futures_prices}
+
+        # 3. Use .map() to assign the prices in the correct order
+        combined_uids['price'] = combined_uids['uid'].map(price_map)
+
+        # combined_uids['price'] = await get_last_prices(combined_uids['uid'])
         stocks_with_prices = (
             combined_uids[: len(stocks_with_futures)][['ticker', 'price']]
             .reset_index(drop=True)
             .sort_values(by='ticker')
         )
         futures_with_prices = combined_uids[len(stocks_with_futures) :]
-        futures_with_prices = futures_with_prices[
-            futures_with_prices['price'] > 0
-        ].reset_index(drop=True)
+        futures_with_prices = futures_with_prices[futures_with_prices['price'] > 0].reset_index(drop=True)
         res = []
         for stock in stocks_with_prices.itertuples():
             futures = (
@@ -128,12 +130,9 @@ class DividendCounter:
             if len(futures) < 1:
                 continue
             futures['days'] = (
-                pd.to_datetime(futures['expiration_date']).dt.date
-                - datetime.datetime.now().date()
+                pd.to_datetime(futures['expiration_date']).dt.date - datetime.datetime.now().date()
             ).apply(lambda d: d.days)
-            futures['dividend'] = futures.apply(
-                self.count_dividend, axis=1, args=(stock.price,)
-            )
+            futures['dividend'] = futures.apply(self.count_dividend, axis=1, args=(stock.price,))
             for future in futures.itertuples():
                 res.append(
                     {
@@ -154,21 +153,11 @@ class DividendCounter:
 
     def _count_dividends(self) -> None:
         stock_price: Decimal = self._stock.iloc[0]['price']
-        self._futures['dividend'] = self._futures.apply(
-            self.count_dividend, axis=1, args=(stock_price,)
-        )
-        self._futures['div_percent'] = (
-            100 * self._futures['dividend'] / float(stock_price)
-        )
-        fair_prices = self._futures.apply(
-            self.count_fair_spread_price, axis=1, args=(stock_price,)
-        )
-        self._futures['sell_margin'] = self._futures.apply(
-            self._sell_spread_margin, axis=1, args=(stock_price,)
-        )
-        self._futures['buy_margin'] = self._futures.apply(
-            self._buy_spread_margin, axis=1, args=(stock_price,)
-        )
+        self._futures['dividend'] = self._futures.apply(self.count_dividend, axis=1, args=(stock_price,))
+        self._futures['div_percent'] = 100 * self._futures['dividend'] / float(stock_price)
+        fair_prices = self._futures.apply(self.count_fair_spread_price, axis=1, args=(stock_price,))
+        self._futures['sell_margin'] = self._futures.apply(self._sell_spread_margin, axis=1, args=(stock_price,))
+        self._futures['buy_margin'] = self._futures.apply(self._buy_spread_margin, axis=1, args=(stock_price,))
         self._futures = pd.concat([self._futures, fair_prices], axis=1)
 
     @staticmethod
@@ -182,7 +171,6 @@ class DividendCounter:
     @staticmethod
     def _buy_spread_margin(row: pd.Series, stock_price: Decimal) -> int:
         return int(stock_price * Decimal(row['basic_asset_size']))
-
 
     @staticmethod
     def count_dividend(row: pd.Series, stock_price: Decimal) -> float:
@@ -198,42 +186,38 @@ class DividendCounter:
         fair_future_price = today_fut_price * (1 + daily_discount_rate) ** row['days']
         fair_spread_price = fair_future_price - today_fut_price
         current_spread_price = row['price'] - today_fut_price
-        return pd.Series(
-            {'current': float(current_spread_price), 'fair': float(fair_spread_price)}
-        )
+        return pd.Series({'current': float(current_spread_price), 'fair': float(fair_spread_price)})
 
     async def _fill_missing_numbers(self) -> None:
         self._futures['days'] = (
-            pd.to_datetime(self._futures['expiration_date']).dt.date
-            - datetime.datetime.now().date()
+            pd.to_datetime(self._futures['expiration_date']).dt.date - datetime.datetime.now().date()
         ).apply(lambda d: d.days)
-        self._stock['price'] = await self._get_stock_buy_price()
-        self._futures['price'] = await self._get_futures_sell_prices()
+        stock_price = await self._get_stock_buy_price()
+        self._stock['price'] = stock_price[0].price
+        futures_prices = await self._get_futures_sell_prices()
+        price_map = {fp.uid: fp.price for fp in futures_prices}
+        self._futures['price'] = self._futures['uid'].map(price_map)
 
-    async def _get_futures_sell_prices(self) -> list[Decimal]:
+    async def _get_futures_sell_prices(self):
         if FORCE_LAST_PRICE or not await is_trading_now(self._futures.iloc[0]):
             return await get_last_prices(self._futures['uid'])
-        tasks = [
-            get_orderbook_price(row['uid'], sell=True)
-            for _, row in self._futures.iterrows()
-        ]
+        tasks = [get_orderbook_price(row['uid'], sell=True) for _, row in self._futures.iterrows()]
         results = await asyncio.gather(*tasks)
         return results
 
-    async def _get_stock_buy_price(self) -> Decimal:
+    async def _get_stock_buy_price(self):
         if FORCE_LAST_PRICE or not await is_trading_now(self._futures.iloc[0]):
             return await get_last_prices(self._stock['uid'])
         return await get_orderbook_price(self._stock.iloc[0]['uid'], sell=False)
 
     async def _load_data(self) -> None:
         await self._update_from_db()
-        self._stock = self._stocks_db.loc[
-            self._stocks_db['ticker'] == self._ticker
-        ].copy()
+        self._stock = self._stocks_db.loc[self._stocks_db['ticker'] == self._ticker].copy()
         if self._stock.empty:
             raise ValidationError(f'Тикер {self._ticker} не найден в базе')
+        self._position_uid = self._stock['position_uid'].iloc[0]
         self._futures = (
-            self._futures_db[self._futures_db['basic_asset'] == self._ticker]
+            self._futures_db[self._futures_db['basic_asset_position_uid'] == self._position_uid]
             .sort_values(by='expiration_date', ascending=True)
             .copy()
         )
@@ -243,6 +227,7 @@ class DividendCounter:
     async def _update_from_db(self) -> None:
         self._stocks_db = await self._handler.get_data('stocks')
         self._futures_db = await self._handler.get_data('futures')
+        # print(self._futures_db)
 
     async def list_available_tickers(self) -> str:
         await self._update_from_db()

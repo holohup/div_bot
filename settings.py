@@ -22,12 +22,15 @@ FUTURES_KEEP_COLUMNS = [
     'expiration_date',
     'uid',
     'initial_margin_on_sell',
-    'initial_margin_on_buy'
+    'initial_margin_on_buy',
+    'basic_asset_position_uid',
+    'name'
 ]
 STOCKS_KEEP_COLUMNS = [
     'ticker',
     'name',
     'uid',
+    'position_uid'
 ]
 ORDERBOOK_DEPTH = 1
 DEFAULT_DISCOUNT_RATE = 21
