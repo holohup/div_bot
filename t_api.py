@@ -1,3 +1,4 @@
+import asyncio
 from decimal import Decimal
 
 import pandas as pd
@@ -26,9 +27,11 @@ async def fetch_stocks() -> pd.DataFrame:
     async with AsyncRetryingClient(TCS_RO_TOKEN, settings=RETRY_SETTINGS) as client:
         response_shares = await client.instruments.shares()
         response_indicatives = await client.instruments.indicatives(request=IndicativesRequest())
+        response_currencies = await client.instruments.currencies()
     shares_df = pd.DataFrame(response_shares.instruments)
     indicatives_df = pd.DataFrame(response_indicatives.instruments)
-    result = pd.concat([shares_df, indicatives_df], ignore_index=True)
+    curerncies_df = pd.DataFrame(response_currencies.instruments)
+    result = pd.concat([shares_df, indicatives_df, curerncies_df], ignore_index=True)
     return result
 
 
@@ -59,3 +62,6 @@ async def get_index_futures():
         response = await client.instruments.indicatives(request=IndicativesRequest())
     all_indexes = pd.DataFrame(response.instruments)
     return all_indexes[(all_indexes['ticker'] == 'IMOEX') | (all_indexes['ticker'] == 'RTSI')]
+
+if __name__ == '__main__':
+    asyncio.run(fetch_stocks())

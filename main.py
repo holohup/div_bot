@@ -9,7 +9,7 @@ from users import IsAdmin, UserHandler, IsApproved
 from service import DividendCounter, DISCOUNT_RATE, IndexCounter
 from zoneinfo import ZoneInfo
 from datetime import datetime
-from settings import TG_BOT_TOKEN, TG_ADMIN_IDS
+from settings import TG_BOT_TOKEN, TG_ADMIN_IDS, CURRENCIES
 import pandas as pd
 import logging
 
@@ -141,7 +141,9 @@ async def process_other_answers(message: Message):
     moscow_time = datetime.now(moscow_tz)
     formatted_time = moscow_time.strftime('%H:%M:%S %d-%m-%y')
     try:
-        futures, stock = await DividendCounter(STORAGE, message.text).count()
+        ticker = message.text.upper()
+        stock_ticker = ticker if (ticker not in CURRENCIES.keys()) else CURRENCIES[ticker]
+        futures, stock = await DividendCounter(STORAGE, stock_ticker).count()
         df_string = format_message(futures)
         await message.reply(
             f"Futures for {stock.iloc[0].ticker} ({formatted_time}), discount rate = {DISCOUNT_RATE}:\n"
@@ -151,6 +153,7 @@ async def process_other_answers(message: Message):
 
     except Exception as e:
         await message.answer(str(e))
+
 
 
 def format_message(futures):

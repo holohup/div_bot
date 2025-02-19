@@ -8,7 +8,7 @@ from tinkoff.invest.schemas import RealExchange, MoneyValue, Quotation
 from tinkoff.invest.utils import quotation_to_decimal
 
 from exceptions import ValidationError
-from settings import DEFAULT_DISCOUNT_RATE, FUTURES_KEEP_COLUMNS, STOCKS_KEEP_COLUMNS
+from settings import DEFAULT_DISCOUNT_RATE, FUTURES_KEEP_COLUMNS, STOCKS_KEEP_COLUMNS, CURRENCIES
 from settings import STORAGE
 from t_api import (
     fetch_futures,
@@ -65,7 +65,7 @@ class THandler:
         df['expiration_date'] = pd.to_datetime(df['expiration_date']).dt.date
         df = df[df['expiration_date'] > now + datetime.timedelta(days=3)]
         df = df[
-            (df['asset_type'] == 'TYPE_SECURITY')
+            (df['asset_type'] == 'TYPE_SECURITY') | (df['asset_type'] == 'TYPE_CURRENCY')
             | ((df['asset_type'] == 'TYPE_INDEX') & df['name'].str.contains('(мини)', na=False))
         ]
         return df
@@ -89,7 +89,8 @@ class DividendCounter:
     async def count(self) -> tuple[pd.DataFrame, pd.DataFrame]:
         await self._load_data()
         await self._fill_missing_numbers()
-        self._count_dividends()
+        count_currency = self._ticker in CURRENCIES.values()
+        self._count_dividends(count_currency=count_currency)
         return self._futures, self._stock
 
     async def count_all(self):
@@ -151,9 +152,10 @@ class DividendCounter:
             result.to_excel(writer, sheet_name='Подробно', index=False)
         return filename
 
-    def _count_dividends(self) -> None:
+    def _count_dividends(self, count_currency=False) -> None:
         stock_price: Decimal = self._stock.iloc[0]['price']
-        self._futures['dividend'] = self._futures.apply(self.count_dividend, axis=1, args=(stock_price,))
+        dividen_counter = self.count_currency_dividend if count_currency else self.count_dividend
+        self._futures['dividend'] = self._futures.apply(dividen_counter, axis=1, args=(stock_price,))
         self._futures['div_percent'] = 100 * self._futures['dividend'] / float(stock_price)
         fair_prices = self._futures.apply(self.count_fair_spread_price, axis=1, args=(stock_price,))
         self._futures['sell_margin'] = self._futures.apply(self._sell_spread_margin, axis=1, args=(stock_price,))
@@ -180,8 +182,15 @@ class DividendCounter:
         return float(dividend / Decimal('0.87'))
 
     @staticmethod
-    def count_fair_spread_price(row: pd.Series, stock_price: Decimal) -> pd.Series:
-        today_fut_price = stock_price * row['basic_asset_size']
+    def count_currency_dividend(row: pd.Series, stock_price: Decimal) -> float:
+        daily_discount_rate = Decimal(DISCOUNT_RATE) / Decimal('365') / 100
+        present_value = row['price'] / (1 + daily_discount_rate) ** row['days']
+        dividend = stock_price - present_value
+        return float(dividend / Decimal('0.87'))
+
+    @staticmethod
+    def count_fair_spread_price(row: pd.Series, stock_price: Decimal, ignore_asset_size=False) -> pd.Series:
+        today_fut_price = stock_price if ignore_asset_size else stock_price * row['basic_asset_size']
         daily_discount_rate = Decimal(DISCOUNT_RATE) / Decimal('365') / 100
         fair_future_price = today_fut_price * (1 + daily_discount_rate) ** row['days']
         fair_spread_price = fair_future_price - today_fut_price
