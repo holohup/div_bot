@@ -23,10 +23,11 @@ FUTURES_KEEP_COLUMNS = [
     'initial_margin_on_buy',
     'basic_asset_position_uid',
     'name',
+    'position_uid'
 ]
-STOCKS_KEEP_COLUMNS = ['ticker', 'name', 'uid', 'position_uid']
+STOCKS_KEEP_COLUMNS = ['ticker', 'name', 'uid', 'position_uid', 'asset_uid']
 ORDERBOOK_DEPTH = 1
-DEFAULT_DISCOUNT_RATE = 21
+DEFAULT_DISCOUNT_RATE = 20
 USER_FIELDS = ['id', 'is_admin', 'approved', 'discount_rate', 'force_last_price']
 DEFAULT_USER_SETTINGS = [False, False, DEFAULT_DISCOUNT_RATE, True]
 
