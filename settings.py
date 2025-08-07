@@ -27,7 +27,7 @@ FUTURES_KEEP_COLUMNS = [
 ]
 STOCKS_KEEP_COLUMNS = ['ticker', 'name', 'uid', 'position_uid', 'asset_uid']
 ORDERBOOK_DEPTH = 1
-DEFAULT_DISCOUNT_RATE = 20
+DEFAULT_DISCOUNT_RATE = 18
 USER_FIELDS = ['id', 'is_admin', 'approved', 'discount_rate', 'force_last_price']
 DEFAULT_USER_SETTINGS = [False, False, DEFAULT_DISCOUNT_RATE, True]
 
